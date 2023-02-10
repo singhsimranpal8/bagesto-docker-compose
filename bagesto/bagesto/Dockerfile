@@ -1,0 +1,16 @@
+FROM ubuntu:20.04
+ARG DEBIAN_FRONTEND=noninteractive
+WORKDIR /var/www/html
+RUN apt-get update && apt install apache2 curl -y && apt -y install software-properties-common && add-apt-repository ppa:ondrej/php && apt-get update && apt -y install php7.4 && apt-get install -y php7.4-cli php7.4-json php7.4-common php7.4-mysql php7.4-zip php7.4-gd php7.4-mbstring php7.4-curl php7.4-xml php7.4-bcmath libapache2-mod-php7.4 php7.4-intl && a2enmod php7.4 && a2enmod rewrite
+RUN apt install php7.4-cli unzip -y && curl -sS https://getcomposer.org/installer -o /tmp/composer-setup.php && HASH=`curl -sS https://composer.github.io/installer.sig` && php -r "if (hash_file('SHA384', '/tmp/composer-setup.php') === '$HASH') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;" && php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer
+RUN curl -sL https://deb.nodesource.com/setup_18.x | bash - &&  apt-get install -y nodejs -y
+RUN composer create-project bagisto/bagisto
+COPY bagesto.conf /etc/apache2/sites-available/
+RUN cp bagisto/.env.example .env
+RUN a2ensite bagesto.conf
+RUN apt-get update -y && apt-get install software-properties-common supervisor -y
+RUN sed -i 's/memory_limit = 128M/memory_limit = 256M/g' /etc/php/7.4/apache2/php.ini && sed -i 's/upload_max_filesize = 2M/upload_max_filesize = 100M/g' /etc/php/7.4/apache2/php.ini && sed -i 's/max_execution_time = 30/max_execution_time = 360/g' /etc/php/7.4/apache2/php.ini && sed -i 's/DB_PASSWORD=/DB_PASSWORD=webkul@123/g' /var/www/html/bagisto/.env && sed -i 's/DB_USERNAME=/DB_USERNAME=testuser/g' /var/www/html/bagisto/.env && sed -i 's/DB_DATABASE=/DB_DATABASE=bagesto/g' /var/www/html/bagisto/.env && sed -i 's/DB_HOST=127.0.0.1/DB_HOST=bagesto_mysql_container/g' /var/www/html/bagisto/.env && rm -rf /etc/apache2/sites-available/000-default.conf && rm -rf /etc/apache2/sites-available/default-ssl.conf && rm -f /etc/apache2/sites-enabled/000-default.conf
+COPY do-no-delete-script.sh /root/
+COPY supervisor.conf /etc/supervisor/conf.d/
+EXPOSE 80
+ENTRYPOINT ["/usr/bin/supervisord"]
